@@ -160,9 +160,8 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ("id", "tickets", "created_at")
 
-    def create(self, validated_data):
-        tickets_data = validated_data.pop("tickets")
-        user = self.context["request"].user
+    def _create_order_with_tickets(self, user, tickets_data):
+        """Helper to reduce duplication between serializers"""
         with transaction.atomic():
             order = Order.objects.create(user=user)
             tickets = []
@@ -172,6 +171,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 tickets.append(ticket)
             Ticket.objects.bulk_create(tickets)
         return order
+
+    def create(self, validated_data):
+        tickets_data = validated_data.pop("tickets")
+        user = self.context["request"].user
+        return self._create_order_with_tickets(user, tickets_data)
 
 
 class OrderCreateTicketSerializer(serializers.ModelSerializer):
@@ -201,3 +205,8 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ("tickets",)
+
+    def create(self, validated_data):
+        tickets_data = validated_data.pop("tickets")
+        user = self.context["request"].user
+        return OrderSerializer()._create_order_with_tickets(user, tickets_data)
